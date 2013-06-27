@@ -111,7 +111,7 @@ def diagWipe( duration ):
 
 #####
 
-def go():
+def main():
   init()
 
   while 1:
@@ -128,4 +128,6 @@ def go():
 
     wiringpi.delay( 750 )
 
+if __name__ == "__main__":
+  main()
 
