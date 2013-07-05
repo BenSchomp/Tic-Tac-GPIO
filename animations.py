@@ -7,15 +7,23 @@ ON = 1
 
 RED = 0
 GREEN = 1
-LED_OFFSET = [ 0, 9 ]
+PIN_OFFSET = [ 0, 9 ]
 RED_LEDS = range( 0, 9 )
 GREEN_LEDS = range( 9, 18 )
+
+Turn = RED
 
 def init():
   wiringpi.wiringPiSetup()
 
   for pin in RED_LEDS:
     wiringpi.pinMode( pin, OUTPUT )
+
+  for pin in GREEN_LEDS:
+    wiringpi.pinMode( pin, OUTPUT )
+
+  allOff()
+  print "Red's Turn..."
 
 def ledOn( pin, duration=0 ):
   ledsOn( [pin], duration )
@@ -27,18 +35,27 @@ def ledOnOff( pin, duration=1000 ):
   ledsOnOff( [pin], duration )
 
 def ledsOn( pins, duration=0 ):
+  #print pins
   for pin in pins:
-    wiringpi.digitalWrite( pin, ON )
+    wiringpi.digitalWrite( pin + PIN_OFFSET[ Turn ], ON )
   wiringpi.delay( duration )
 
 def ledsOff( pins, duration=0 ):
   for pin in pins:
-    wiringpi.digitalWrite( pin, OFF )
+    wiringpi.digitalWrite( pin + PIN_OFFSET[ Turn ], OFF )
   wiringpi.delay( duration )
 
 def ledsOnOff( pins, duration=1000 ):
   ledsOn( pins, duration )
   ledsOff( pins, duration )
+
+def allOn():
+  ledsOn( RED_LEDS )
+  ledsOn( GREEN_LEDS )
+
+def allOff():
+  ledsOff( RED_LEDS )
+  ledsOff( GREEN_LEDS )
 
 
 
@@ -111,8 +128,22 @@ def diagWipe( duration ):
 
 #####
 
+def takeTurn( pin ):
+  global Turn
+  for i in range( 0, 3 ):
+    flashOne( pin, 100 )
+
+  ledOn( pin )
+  if Turn == RED:
+    Turn = GREEN
+    print "Green's Turn..."
+  else:
+    Turn = RED
+    print "Red's Turn..."
+
 def main():
   init()
+  global Turn
 
   while 1:
     flashEach( 125 )
@@ -127,6 +158,13 @@ def main():
       flashAll( 125 )
 
     wiringpi.delay( 750 )
+
+    if Turn == RED:
+      print " -=-=- Green's Turn -=-=-"
+      Turn = GREEN
+    else:
+      print " -=-=- Red's Turn -=-=-"
+      Turn = RED
 
 if __name__ == "__main__":
   main()
