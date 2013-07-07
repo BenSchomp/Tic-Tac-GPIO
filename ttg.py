@@ -1,180 +1,74 @@
+# import libraries
 import wiringpi2 as wiringpi
+import led
 
-INPUT = 0
-OUTPUT = 1
-OFF = UP = 0
-ON = DOWN = 1
+# global constants
+EMPTY = ' '
+RED = 'X'
+GREEN = 'O'
+
+UP = 0
+DOWN = 1
 
 NOT_PRESSED = 0
 PRESSED = 1
 
-EMPTY = -1
-RED = 0
-GREEN = 1
+PLAYING = 0
+GAME_OVER = 1
 
-PIN_OFFSET = [ 0, 9 ]
-RED_LEDS = range( 0, 9 )
-GREEN_LEDS = range( 9, 18 )
-BUTTONS = range( 18, 21)
+FLASH_ON = 20000
+FLASH_OFF = 10000
 
+# global variables
 Turn = RED
 Board = []
 
-### Init Functions ###
-
-def init():
-  wiringpi.wiringPiSetup()
-
-  for pin in RED_LEDS:
-    wiringpi.pinMode( pin, OUTPUT )
-
-  for pin in GREEN_LEDS:
-    wiringpi.pinMode( pin, OUTPUT )
-
-  for pin in BUTTONS:
-    wiringpi.pinMode( pin, INPUT )
-
-  allOff()
-
-### LED Functions ###
-
-def ledOn( pin, duration=0 ):
-  ledsOn( [pin], duration )
-
-def ledOff( pin, duration=0 ):
-  ledsOff( [pin], duration )
-
-def ledOnOff( pin, duration=1000 ):
-  ledsOnOff( [pin], duration )
-
-def ledsOn( pins, duration=0 ):
-  for pin in pins:
-    wiringpi.digitalWrite( pin, ON )
-  wiringpi.delay( duration )
-
-def ledsOff( pins, duration=0 ):
-  for pin in pins:
-    wiringpi.digitalWrite( pin, OFF )
-  wiringpi.delay( duration )
-
-def ledsOnOff( pins, duration=1000 ):
-  ledsOn( pins, duration )
-  ledsOff( pins, duration )
-
-def allOn():
-  ledsOn( RED_LEDS )
-  ledsOn( GREEN_LEDS )
-
-def allOff():
-  ledsOff( RED_LEDS )
-  ledsOff( GREEN_LEDS )
-
-### Animation Functions ###
-
-def flashOne( pin, duration ):
-  ledOnOff( pin, duration )
-
-def flashAll( duration ):
-  ledsOnOff( RED_LEDS, duration )
-
-def flashEach( duration ):
-  for pin in RED_LEDS:
-    flashOne( pin, duration )
-
-def flashRows( duration ):
-  for row in range( 0, 3 ):
-    ledsOnOff( [row*3 + 0, row*3 + 1, row*3 + 2 ], duration )
-
-def flashCols( duration ):
-  for col in range( 0, 3 ):
-    ledsOnOff( [col + 0, col + 3, col + 6 ], duration )
-
-def snake( duration ):
-  trail = [0, 1, 2, 5, 4, 3, 6, 7, 8]
-  for pin in trail:
-    ledOn( pin, duration )
-
-  for pin in trail:
-    ledOff( pin, duration )
-
-def spiral( duration ):
-  trail = [0, 3, 6, 7, 8, 5, 2, 4, 1 ]
-  for pin in trail:
-    ledOn( pin, duration )
-
-  wiringpi.delay( duration )
-
-  trail.reverse()
-  for pin in trail:
-    ledOff( pin, duration )
-
-def flatWipe( duration ):
-  rows = [ [0,1,2], [3,4,5], [6,7,8] ]
-  cols = [ [0,3,6], [1,4,7], [2,5,8] ]
-
-  for i in range( 0, 2 ):
-    for col in cols:
-      ledsOn( col, duration )
-
-    for row in rows:
-      ledsOff( row, duration )
-
-    cols.reverse()
-    rows.reverse()
-
-def diagWipe( duration ):
-  diag1 = [ [0], [3,1], [6,4,2], [7,5], [8] ]
-  diag2 = [ [2], [1,5], [0,4,8], [3,7], [6] ]
-
-  for i in range( 0, 2 ):
-    for diag in diag1:
-      ledsOn( diag, duration )
-
-    for diag in diag2:
-      ledsOff( diag, duration )
-
-    diag1.reverse()
-    diag2.reverse()
-
-def animations():
-  global Turn
-
-  allOff()
-
-  while 1:
-    flashEach( 125 )
-    flashRows( 150 )
-    flashCols( 150 )
-    snake( 100 )
-    flatWipe( 200 )
-    spiral( 75 )
-    diagWipe( 150 )
-
-    for i in range( 0, 3 ):
-      flashAll( 125 )
-
-    wiringpi.delay( 750 )
-
-    if Turn == RED:
-      print " -=-=- Green's Turn -=-=-"
-      Turn = GREEN
-    else:
-      print " -=-=- Red's Turn -=-=-"
-      Turn = RED
-
 #####
 
-def takeTurn( square ):
+def checkForWin():
+  topRow =   [ 0, 1, 2 ]
+  midRow =   [ 3, 4, 5 ]
+  botRow =   [ 6, 7, 8,]
+  leftCol =  [ 0, 3, 6,]
+  midCol =   [ 1, 4, 7,]
+  rightCol = [ 2, 5 ,8,]
+  diag1 =    [ 0, 4, 8,]
+  diag2 =    [ 2, 4, 6,]
+  
+  winLines = [ topRow, midRow, botRow, leftCol, midCol, rightCol, diag1, diag2 ]
+
+  
+  for line in winLines :
+    if Board[ line[0] ] == Turn and Board[ line[1] ] == Turn and Board[ line[2] ] == Turn:
+      print (Turn) + " wins!"
+      print
+      return line
+
+  return False
+  
+def winningAnimation ( winningLine ):
+  # flash all three
+  led.ledsOff( winningLine, 250 )
+  for i in range ( 0, 3 ):
+    led.ledsOnOff( winningLine, 250 )
+  
+  wiringpi.delay( 100 )
+  
+  # flash one at a time
+  for i in range ( 0, 2 ):  
+    for j in range ( 0, 3 ):
+      led.ledOn ( winningLine[ j ], 350 )
+    led.ledsOff( winningLine, 350 )
+  led.ledsOff( winningLine, 250 )
+  
+  # flash all three
+  for i in range ( 0, 2 ):
+    led.ledsOnOff( winningLine, 250 )
+  led.ledsOn( winningLine )
+        
+    
+def nextTurn():
   global Turn
-  global Board
-  pin = squareToPin( square )
-
-  for i in range( 0, 3 ):
-    flashOne( pin, 100 )
-
-  ledOn( pin )
-  Board[ square ] = Turn
-
   if Turn == RED:
     Turn = GREEN
     print "Green's Turn..."
@@ -182,36 +76,13 @@ def takeTurn( square ):
     Turn = RED
     print "Red's Turn..."
 
-def buttonTest( pin ):
-  clickCount = -1 
-  buttonState = NOT_PRESSED
-
-  while 2 + 2 == 4:
-    button = wiringpi.digitalRead( pin )
-    if button == DOWN:
-      if buttonState == NOT_PRESSED:
-        buttonState = PRESSED
-
-        ledOff( clickCount )
-        clickCount = clickCount + 1
-        if clickCount > 8:
-          clickCount = 0
-        ledOn( clickCount )
-
-        print "Button CLICKED: {0}".format(clickCount)
-
-    elif button == UP:
-      if buttonState == PRESSED:
-        buttonState = NOT_PRESSED
-        wiringpi.delay(250)
-
 def squareToPin( square ):
-  global Turn
-  return square + PIN_OFFSET[ Turn ]
+  if Turn == RED:
+    return square
+  else:
+    return square + 9
 
 def nextEmpty( square ):
-  print "nextEmpty( {0} )...".format( square )
-  print Board
   count = 0
   square = square + 1
   if square > 8:
@@ -226,23 +97,41 @@ def nextEmpty( square ):
     if count > 8:
       return -1 # game over
 
-  print "... {0}".format( square )
-  return square
+  return square, squareToPin( square )
+  
+
+def gameInit():
+  global Turn, Board, GameState
+  Turn = RED
+  Board = [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY]
+ 
+  GameState = PLAYING
+  led.allOff()
+  
+  #Board = [EMPTY, RED, RED, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY]
+  #led.ledOn( 1 )
+  #led.ledOn( 2 )
 
 def playGame():
-  global Turn
-  Turn = RED
-  global Board
-  Board  = [ EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY  ]
-  gameOver = 0
-
-  allOff()
+  global GameState
+  gameInit()
 
   moveButtonState = selectButtonState = NOT_PRESSED
-  curSquare = 0
-  ledOn( squareToPin( curSquare ) )
-
-  while not gameOver:
+  curSquare = curPin = 0
+  flashCount = 0
+ 
+  # the game loop
+  while GameState == PLAYING:
+     
+    # flash current square
+    flashCount = flashCount + 1
+    if flashCount == 1:
+      led.ledOn( curPin )
+    elif flashCount == FLASH_ON:
+      led.ledOff( curPin )
+    elif flashCount > FLASH_ON + FLASH_OFF:
+      flashCount = 0
+    
     # get button inputs
     moveButton = wiringpi.digitalRead( 18 )
     selectButton = wiringpi.digitalRead( 19 )
@@ -252,12 +141,26 @@ def playGame():
       if selectButtonState == NOT_PRESSED:
         selectButtonState = PRESSED
 
-        takeTurn( curSquare )
-        curSquare = nextEmpty( 8 )
-        if curSquare >= 0:
-          ledOn( squareToPin( curSquare ) )
-        else:
-          gameOver = 1
+        # flash selected square and turn it on
+        for i in range( 0, 3 ):
+          led.flashOne( curPin, 100 )
+        led.ledOn( curPin )
+  
+        # update Board and check for game over
+        Board[ curSquare ] = Turn
+        winningLine = checkForWin()
+        
+        if winningLine:
+          GameState = GAME_OVER
+          # flash winning line
+          winningAnimation( winningLine )
+        
+        if GameState == PLAYING:
+          nextTurn()
+          curSquare, curPin = nextEmpty( 8 )
+        
+        if curSquare < 0:
+          GameState = GameOver
 
         moveButton = UP
         moveButtonState = NOT_PRESSED
@@ -272,10 +175,9 @@ def playGame():
       if moveButtonState == NOT_PRESSED:
         moveButtonState = PRESSED
 
-        ledOff( squareToPin( curSquare ) )
-        curSquare = nextEmpty( curSquare )
-        ledOn( squareToPin( curSquare ) )
-
+        led.ledOff( squareToPin( curSquare ) )
+        curSquare, curPin = nextEmpty( curSquare )
+        
         selectButtonState = NOT_PRESSED
 
     else:
@@ -284,17 +186,25 @@ def playGame():
         wiringpi.delay( 256 )
 
   print " +++ Game Over! +++"
-  wiringpi.delay( 5000 )
-
+  
+  led.wiringpi.delay( 5000 )
+  led.allOff()
+  for i in range( 0, 3 ):
+    if Turn == RED:
+      led.ledsOnOff( led.RED_LEDS, 125 )
+    else:
+      led.ledsOnOff( led.GREEN_LEDS, 125 )
 
 #####
 
 def main():
-  init()
+  led.init()
 
-  playGame()
+  print "Starting Tic-Tac-GPIO! (ctrl-c to stop)"
 
-  animations()
+  while 2+2 == 4:
+    playGame()
+
 
 if __name__ == "__main__":
   main()
