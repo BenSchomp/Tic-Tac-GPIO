@@ -15,6 +15,7 @@ PRESSED = 1
 
 PLAYING = 0
 GAME_OVER = 1
+ANIMATING = 2
 
 FLASH_ON = 20000
 FLASH_OFF = 10000
@@ -46,27 +47,69 @@ def checkForWin():
 
   return False
   
-def winningAnimation ( winningLine ):
+def winningAnimation( winningLine ):
+  winningPins = winningLine
+  if Turn == GREEN:
+    for i in range( 0, 3 ):
+      winningPins[i] = winningLine[i] + 9
+      
   # flash all three
-  led.ledsOff( winningLine, 250 )
+  led.ledsOff( winningPins, 250 )
   for i in range ( 0, 3 ):
-    led.ledsOnOff( winningLine, 250 )
+    led.ledsOnOff( winningPins, 250 )
   
   wiringpi.delay( 100 )
   
   # flash one at a time
   for i in range ( 0, 2 ):  
     for j in range ( 0, 3 ):
-      led.ledOn ( winningLine[ j ], 350 )
-    led.ledsOff( winningLine, 350 )
-  led.ledsOff( winningLine, 250 )
+      led.ledOn ( winningPins[ j ], 350 )
+    led.ledsOff( winningPins, 150 )
+  led.ledsOff( winningPins, 250 )
   
   # flash all three
   for i in range ( 0, 2 ):
-    led.ledsOnOff( winningLine, 250 )
-  led.ledsOn( winningLine )
+    led.ledsOnOff( winningPins, 250 )
+  led.ledsOn( winningPins )
         
+def tieAnimation():
+  wiringpi.delay( 500 )
+  
+  for i in range( 0, 3 ):
+    for i in range( 0, 9 ):
+      if Board[ i ] == RED:
+        led.ledOff( i )
+        led.ledOn( i + 9 )
+      else:
+        led.ledOff( i + 9 )
+        led.ledOn( i )
+
+    wiringpi.delay( 250 )
     
+    for i in range( 0, 9 ):
+      if Board[i] == RED:
+        led.ledOff( i + 9 )
+        led.ledOn( i )
+      elif Board[i] == GREEN:
+        led.ledOff( i  )
+        led.ledOn( i + 9 )
+        
+    wiringpi.delay( 250 )
+
+def resetAnimation():
+  led.allOff()
+  
+  for i in range( 0, 3 ):
+    for i in range( 0, 9 ):
+      if Board[i] == RED:
+        led.ledOn( i )
+      elif Board[i] == GREEN:
+        led.ledOn( i + 9 )
+    led.wiringpi.delay( 250 )
+    
+    led.allOff()
+    led.wiringpi.delay( 250 )
+  
 def nextTurn():
   global Turn
   if Turn == RED:
@@ -95,7 +138,7 @@ def nextEmpty( square ):
 
     count = count + 1
     if count > 8:
-      return -1 # game over
+      return -1, -1 # tie
 
   return square, squareToPin( square )
   
@@ -108,9 +151,9 @@ def gameInit():
   GameState = PLAYING
   led.allOff()
   
-  #Board = [EMPTY, RED, RED, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY]
-  #led.ledOn( 1 )
-  #led.ledOn( 2 )
+  #Board = [EMPTY, GREEN, RED, GREEN, GREEN, RED, RED, RED, GREEN]
+  #led.ledsOn( [2, 5, 6, 7] )
+  #led.ledsOn( [1+9, 3+9, 4+9, 8+9] )
 
 def playGame():
   global GameState
@@ -160,7 +203,9 @@ def playGame():
           curSquare, curPin = nextEmpty( 8 )
         
         if curSquare < 0:
-          GameState = GameOver
+          GameState = GAME_OVER
+          print "It's a tie!"
+          tieAnimation()
 
         moveButton = UP
         moveButtonState = NOT_PRESSED
@@ -168,7 +213,7 @@ def playGame():
     else:
       if selectButtonState == PRESSED:
         selectButtonState = NOT_PRESSED
-        wiringpi.delay( 256 )
+        wiringpi.delay( 250 )
 
     # handle move button
     if moveButton == DOWN:
@@ -183,17 +228,13 @@ def playGame():
     else:
       if moveButtonState == PRESSED:
         moveButtonState = NOT_PRESSED
-        wiringpi.delay( 256 )
-
-  print " +++ Game Over! +++"
+        wiringpi.delay( 250 )
   
   led.wiringpi.delay( 5000 )
-  led.allOff()
-  for i in range( 0, 3 ):
-    if Turn == RED:
-      led.ledsOnOff( led.RED_LEDS, 125 )
-    else:
-      led.ledsOnOff( led.GREEN_LEDS, 125 )
+  
+  resetAnimation()
+
+
 
 #####
 
