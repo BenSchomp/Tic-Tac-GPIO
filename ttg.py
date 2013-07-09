@@ -7,8 +7,8 @@ LEFT_BUTTON_PIN = 18
 RIGHT_BUTTON_PIN = 19
 
 EMPTY = ' '
-RED = 'X'
-GREEN = 'O'
+RED = 'Red'
+GREEN = 'Green'
 
 UP = 0
 DOWN = 1
@@ -21,32 +21,32 @@ READY = 1
 ANIMATING = 2
 GAME_OVER = 3
 
-READY_FLASHES = 50
+READY_FLASHES = 100
 
 FLASH_ON =  20000
 FLASH_OFF = 10000
 
-ANIMATION_SPEED = 6000
 OFF = -1
 END = -2
-ANIMATION = [
+READY_ANIMATIONS = [
+  [0],[3],[6],[OFF,0],[OFF,3],[OFF,6], # left drop
+  [1],[4],[7],[OFF,1],[OFF,4],[OFF,7], # mid drop
+  [2],[5],[8],[OFF,2],[OFF,5],[OFF,8], # right drop
+  [0],[1],[2],[5],[4],[3],[6],[7],[8], # snake on
+  [OFF,0],[OFF,1],[OFF,2],[OFF,5],[OFF,4],[OFF,3],[OFF,6],[OFF,7],[OFF,8], # snake off
   [0,1,2], [3,4,5], [6,7,8], [OFF,0,1,2], [OFF,3,4,5], [OFF,6,7,8], # top down wipe
   [0,3,6], [1,4,7], [2,5,8], [OFF,0,3,6], [OFF,1,4,7], [OFF,2,5,8], # left right wipe
   [0], [1,3], [2,4,6], [5,7], [8], # diag on
   [OFF,0], [OFF,1,3], [OFF,2,4,6], [OFF,5,7], [OFF,8], # diag off
-  [0],[3],[6],[OFF,0],[OFF,3],[OFF,6],
-  [1],[4],[7],[OFF,1],[OFF,4],[OFF,7],
-  [2],[5],[8],[OFF,2],[OFF,5],[OFF,8],
-  [0],[1],[2],[5],[4],[3],[6],[7],[8], # snake on
-  [OFF,0],[OFF,1],[OFF,2],[OFF,5],[OFF,4],[OFF,3],[OFF,6],[OFF,7],[OFF,8], # snake off
   [END] ]
+READY_ANIMATION_SPEED = 6000
 
 SHORT_PAUSE = 150
 MED_PAUSE =   350
 LONG_PAUSE =  500
 
 # global variables
-Turn = RED
+Turn = GREEN
 Board = []
 
 #####
@@ -64,8 +64,10 @@ def checkForWin():
   ]
   
   for line in winLines :
-    if Board[ line[0] ] == Turn and Board[ line[1] ] == Turn and Board[ line[2] ] == Turn:
-      print (Turn) + " wins!"
+    if Board[ line[0] ] == Turn and \
+       Board[ line[1] ] == Turn and \
+       Board[ line[2] ] == Turn:
+      print " + " + Turn + " wins!"
       return line
 
   return False
@@ -141,10 +143,9 @@ def nextTurn():
   global Turn
   if Turn == RED:
     Turn = GREEN
-    print "Green's Turn..."
   else:
     Turn = RED
-    print "Red's Turn..."
+  print Turn + "'s Turn..."
 
 def squareToPin( square ):
   if Turn == RED:
@@ -168,39 +169,27 @@ def nextEmpty( square ):
       return -1, -1 # tie
 
   return square, squareToPin( square )
-  
-
-def gameInit():
-  global Turn, Board, GameState
-  Turn = RED
-  Board = [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY]
- 
-  GameState = ANIMATING
-  led.allOff()
-  
-  # for testing, initial conditions
-  if False:
-    Board = [EMPTY, GREEN, RED, GREEN, GREEN, RED, RED, RED, GREEN]
-    led.ledsOn( [2, 5, 6, 7] )
-    led.ledsOn( [1+9, 3+9, 4+9, 8+9] )
-  elif False:
-    Board = [EMPTY, RED, RED, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY]
-    led.ledsOn( [1, 2] )
 
 def playGame():
-  global GameState
-  gameInit()
-
+  # set initial conditions
+  global Turn, Board
+  Board = [EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY, EMPTY]
   moveButtonState = selectButtonState = NOT_PRESSED
-  curSquare = curPin = flashCount = readyCount = 0
- 
+
+  nextTurn()
+
+  GameState = READY
+  curSquare = flashCount = readyCount = 0
+  curPin = squareToPin( curSquare )
+  led.allOff()
+
   # the game loop
   while GameState != GAME_OVER:
      
     flashCount += 1
     if GameState == ANIMATING:
-      if flashCount % ANIMATION_SPEED == 0:
-        curLeds = ANIMATION[ ( flashCount / ANIMATION_SPEED ) - 1 ]
+      if flashCount % READY_ANIMATION_SPEED == 0:
+        curLeds = READY_ANIMATIONS[( flashCount / READY_ANIMATION_SPEED ) - 1]
         if curLeds[0] == END:
           flashCount = 0
           led.allOff()
@@ -232,12 +221,12 @@ def playGame():
       if selectButtonState == NOT_PRESSED:
         # act right away on button press
         selectButtonState = PRESSED
+        flashCount = readyCount = 0
 
         if GameState == ANIMATING:
           # stop the animation
-          led.allOff()
           GameState = READY
-          curSquare = curPin = flashCount = readyCount = 0
+          led.allOff()
 
         else:
           GameState = PLAYING
@@ -261,7 +250,7 @@ def playGame():
           
             if curSquare < 0:
               GameState = GAME_OVER
-              print "It's a tie!"
+              print " + It's a tie!"
               gameTiedAnimation()
 
         # clear the other button's state
@@ -279,12 +268,12 @@ def playGame():
       if moveButtonState == NOT_PRESSED:
         # act right away on button press
         moveButtonState = PRESSED
+        flashCount = readyCount = 0
 
         if GameState == ANIMATING:
           # stop the animation
-          led.allOff()
           GameState = READY
-          curSquare = curPin = flashCount = readyCount = 0
+          led.allOff()
 
         else:
           led.ledOff( squareToPin( curSquare ) )
@@ -313,7 +302,7 @@ def playGame():
 def main():
   led.init()
 
-  print "Starting Tic-Tac-GPIO! (ctrl-c to stop)"
+  print " ++ Tic-Tac-GPIO! ++"
 
   while 2+2 == 4:
     playGame()
