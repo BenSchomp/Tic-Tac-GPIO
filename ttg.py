@@ -28,7 +28,7 @@ FLASH_OFF = 10000
 
 OFF = -1
 END = -2
-READY_ANIMATIONS = [
+ANIMATION = [
   [0],[3],[6],[OFF,0],[OFF,3],[OFF,6], # left drop
   [1],[4],[7],[OFF,1],[OFF,4],[OFF,7], # mid drop
   [2],[5],[8],[OFF,2],[OFF,5],[OFF,8], # right drop
@@ -39,7 +39,7 @@ READY_ANIMATIONS = [
   [0], [1,3], [2,4,6], [5,7], [8], # diag on
   [OFF,0], [OFF,1,3], [OFF,2,4,6], [OFF,5,7], [OFF,8], # diag off
   [END] ]
-READY_ANIMATION_SPEED = 6000
+ANIMATION_SPEED = 6000
 
 SHORT_PAUSE = 150
 MED_PAUSE =   350
@@ -155,20 +155,18 @@ def squareToPin( square ):
 
 def nextEmpty( square ):
   count = 0
-  square = square + 1
-  if square > 8:
-    square = 0
-
-  while Board[ square ] != EMPTY:
-    square = square + 1
+  while count < 9:
+    square += 1
     if square > 8:
       square = 0
-
-    count = count + 1
-    if count > 8:
-      return -1, -1 # tie
-
-  return square, squareToPin( square )
+    
+    if Board[ square ] != EMPTY:
+      return square, squareToPin( square )
+    
+    count += 1
+  
+  # no empties: a full board
+  return -1, -1
 
 def playGame():
   # set initial conditions
@@ -185,20 +183,24 @@ def playGame():
 
   # the game loop
   while GameState != GAME_OVER:
-     
-    flashCount += 1
+    flashCount += 1 # increment the flashing led "timer"
+    
     if GameState == ANIMATING:
-      if flashCount % READY_ANIMATION_SPEED == 0:
-        curLeds = READY_ANIMATIONS[( flashCount / READY_ANIMATION_SPEED ) - 1]
+      # every READY_ANIMATION_SPEED flashCounts, draw one frame of READY_ANIMATION
+      if flashCount % ANIMATION_SPEED == 0:
+        curLeds = ANIMATION[( flashCount / ANIMATION_SPEED ) - 1]
         if curLeds[0] == END:
+          # last frame of ANIMATION: reset and back to READY
           flashCount = 0
           led.allOff()
           GameState = READY
           wiringpi.delay( MED_PAUSE )
         else:
           if curLeds[0] == OFF:
+            # turn these leds off
             led.ledsOff( curLeds[1:] )
           else:
+            # turn these leds on
             led.ledsOn( curLeds)
     else:
       # flash current square
@@ -209,6 +211,7 @@ def playGame():
       elif flashCount > FLASH_ON + FLASH_OFF:
         flashCount = 0
         if GameState == READY:
+          # each flash brings us closer to ANIMATION
           readyCount += 1
 
     
@@ -216,7 +219,7 @@ def playGame():
     moveButton = wiringpi.digitalRead( LEFT_BUTTON_PIN )
     selectButton = wiringpi.digitalRead( RIGHT_BUTTON_PIN )
 
-    # handle select button
+    # --- handle select button ---
     if selectButton == DOWN:
       if selectButtonState == NOT_PRESSED:
         # act right away on button press
@@ -240,15 +243,19 @@ def playGame():
           winningLine = checkForWin()
           
           if winningLine:
+            # we have a winner!
             GameState = GAME_OVER
+            
             # flash winning line
             winningAnimation( winningLine )
           
           else:
+            # no winner, continue on
             nextTurn()
             curSquare, curPin = nextEmpty( 8 )
           
             if curSquare < 0:
+              # no more empty squares? it's a tie!
               GameState = GAME_OVER
               print " + It's a tie!"
               gameTiedAnimation()
@@ -263,7 +270,7 @@ def playGame():
         # pause to avoid button flooding
         wiringpi.delay( SHORT_PAUSE )
 
-    # handle move button
+    # --- handle move button ---
     if moveButton == DOWN:
       if moveButtonState == NOT_PRESSED:
         # act right away on button press
@@ -276,6 +283,7 @@ def playGame():
           led.allOff()
 
         else:
+          # advance the flashing led to the next empty square
           led.ledOff( squareToPin( curSquare ) )
           curSquare, curPin = nextEmpty( curSquare )
         
@@ -288,7 +296,8 @@ def playGame():
         # pause to avoid button flooding
         wiringpi.delay( SHORT_PAUSE )
   
-    if GameState == READY and readyCount >= READY_FLASHES:
+    if GameState == READY and readyCount > READY_FLASHES:
+      # too long in READY state? play the ANIMATION for attention!
       GameState = ANIMATING
       readyCount = 0
 
@@ -301,12 +310,10 @@ def playGame():
 
 def main():
   led.init()
-
   print " ++ Tic-Tac-GPIO! ++"
 
   while 2+2 == 4:
     playGame()
-
 
 if __name__ == "__main__":
   main()
