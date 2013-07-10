@@ -51,58 +51,60 @@ Board = []
 
 #####
 
-def checkForWin():
-  winLines = [
-    [ 0, 1, 2 ], # top row
-    [ 3, 4, 5 ], # middle row
-    [ 6, 7, 8,], # bottom row
-    [ 0, 3, 6,], # left col
-    [ 1, 4, 7,], # middle col
-    [ 2, 5 ,8,], # right col
-    [ 0, 4, 8,], # diagonal 1
-    [ 2, 4, 6,]  # diagonal 2
-  ]
-  
-  for line in winLines :
-    if Board[ line[0] ] == Turn and \
-       Board[ line[1] ] == Turn and \
-       Board[ line[2] ] == Turn:
-      print " + " + Turn + " wins!"
-      return line
-
-  return False
-  
 def winningAnimation( winningLine ):
   # convert line to pins
   winningPins = winningLine
   if Turn == GREEN:
     for i in range( 0, 3 ):
       winningPins[i] = winningLine[i] + 9
-      
+
   wiringpi.delay( LONG_PAUSE )
   led.ledsOff( winningPins, MED_PAUSE )
 
   # flash all three
   for i in range ( 0, 2 ):
     led.ledsOnOff( winningPins, MED_PAUSE )
-  
+
   led.ledsOn( winningPins, LONG_PAUSE )
-  
+
   # flash one at a time
-  for i in range ( 0, 2 ):  
+  for i in range ( 0, 2 ):
     led.ledsOff( winningPins, SHORT_PAUSE )
     for j in range ( 0, 3 ):
       led.ledOn( winningPins[ j ], MED_PAUSE )
     wiringpi.delay( SHORT_PAUSE )
 
   led.ledsOff( winningPins, SHORT_PAUSE )
-  
+
   # flash all three again
   for i in range ( 0, 2 ):
     led.ledsOnOff( winningPins, SHORT_PAUSE )
 
   # turn back on for final board
   led.ledsOn( winningPins )
+
+def gameTiedAnimation():
+  wiringpi.delay( LONG_PAUSE )
+
+  # flip the colors back and forth
+  for i in range( 0, 3 ):
+    drawBoard( True )
+    wiringpi.delay( MED_PAUSE )
+
+    drawBoard()
+    wiringpi.delay( MED_PAUSE )
+
+def resetAnimation():
+  # flash existing board
+  for i in range( 0, 2 ):
+    led.allOff()
+    led.wiringpi.delay( SHORT_PAUSE )
+
+    drawBoard()
+    led.wiringpi.delay( SHORT_PAUSE )
+
+  led.allOff()
+  led.wiringpi.delay( LONG_PAUSE )
 
 def drawBoard( invert=False):
   # handle board inversion
@@ -115,37 +117,37 @@ def drawBoard( invert=False):
       led.ledOn( i + redOffset )
     elif Board[i] == GREEN:
       led.ledOn( i + greenOffset )
-        
-def gameTiedAnimation():
-  wiringpi.delay( LONG_PAUSE )
-  
-  # flip the colors back and forth
-  for i in range( 0, 3 ):
-    drawBoard( True )
-    wiringpi.delay( MED_PAUSE )
-    
-    drawBoard()
-    wiringpi.delay( MED_PAUSE )
 
-def resetAnimation():
-  # flash existing board
-  for i in range( 0, 3 ):
-    led.allOff()
-    led.wiringpi.delay( SHORT_PAUSE )
-  
-    drawBoard()
-    led.wiringpi.delay( SHORT_PAUSE )
+def checkForWin():
+  winLines = [
+    [ 0, 1, 2 ], # top row
+    [ 3, 4, 5 ], # middle row
+    [ 6, 7, 8,], # bottom row
+    [ 0, 3, 6,], # left col
+    [ 1, 4, 7,], # middle col
+    [ 2, 5 ,8,], # right col
+    [ 0, 4, 8,], # diagonal 1
+    [ 2, 4, 6,]  # diagonal 2
+  ]
 
-  led.allOff()
-  led.wiringpi.delay( LONG_PAUSE )
-    
-def nextTurn():
+  for line in winLines :
+    if Board[ line[0] ] == Turn and \
+       Board[ line[1] ] == Turn and \
+       Board[ line[2] ] == Turn:
+      print " + " + Turn + " wins!"
+      return line
+
+  return False
+
+def nextTurn( printTurn=True ):
   global Turn
   if Turn == RED:
     Turn = GREEN
   else:
     Turn = RED
-  print Turn + "'s Turn..."
+
+  if printTurn:
+    print Turn + "'s Turn..."
 
 def squareToPin( square ):
   if Turn == RED:
@@ -159,12 +161,12 @@ def nextEmpty( square ):
     square += 1
     if square > 8:
       square = 0
-    
-    if Board[ square ] != EMPTY:
+
+    if Board[ square ] == EMPTY:
       return square, squareToPin( square )
-    
+
     count += 1
-  
+
   # no empties: a full board
   return -1, -1
 
@@ -184,7 +186,7 @@ def playGame():
   # the game loop
   while GameState != GAME_OVER:
     flashCount += 1 # increment the flashing led "timer"
-    
+
     if GameState == ANIMATING:
       # every READY_ANIMATION_SPEED flashCounts, draw one frame of READY_ANIMATION
       if flashCount % ANIMATION_SPEED == 0:
@@ -214,7 +216,7 @@ def playGame():
           # each flash brings us closer to ANIMATION
           readyCount += 1
 
-    
+
     # get button inputs
     moveButton = wiringpi.digitalRead( LEFT_BUTTON_PIN )
     selectButton = wiringpi.digitalRead( RIGHT_BUTTON_PIN )
@@ -237,28 +239,29 @@ def playGame():
           for i in range( 0, 3 ):
             led.flashOne( curPin, SHORT_PAUSE )
           led.ledOn( curPin )
-    
+
           # update Board and check for game over
           Board[ curSquare ] = Turn
           winningLine = checkForWin()
-          
+
           if winningLine:
             # we have a winner!
             GameState = GAME_OVER
-            
+
             # flash winning line
             winningAnimation( winningLine )
-          
+
           else:
             # no winner, continue on
             nextTurn()
             curSquare, curPin = nextEmpty( 8 )
-          
+
             if curSquare < 0:
               # no more empty squares? it's a tie!
               GameState = GAME_OVER
               print " + It's a tie!"
               gameTiedAnimation()
+              nextTurn( False ) # flip first player on ties
 
         # clear the other button's state
         moveButton = UP
@@ -286,7 +289,7 @@ def playGame():
           # advance the flashing led to the next empty square
           led.ledOff( squareToPin( curSquare ) )
           curSquare, curPin = nextEmpty( curSquare )
-        
+
         # clear the other button's state
         selectButtonState = NOT_PRESSED
 
@@ -295,7 +298,7 @@ def playGame():
         moveButtonState = NOT_PRESSED
         # pause to avoid button flooding
         wiringpi.delay( SHORT_PAUSE )
-  
+
     if GameState == READY and readyCount > READY_FLASHES:
       # too long in READY state? play the ANIMATION for attention!
       GameState = ANIMATING
